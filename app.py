@@ -3,8 +3,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.signal import find_peaks
 
-# Ruta del archivo (ajústala si es necesario)
-record_name = r"D:\Proyectos\Señales_EGS\QT_Database\sel102/sel102"
+# Ruta del archivo de registro ECG
+record_name = r"D:\Proyectos\Señales_EGS\QT_Database\sel102\sel102"
 
 # Leer el registro ECG
 record = wfdb.rdrecord(record_name)
@@ -25,7 +25,7 @@ time_axis = np.arange(samples_10s) / fs
 peaks, _ = find_peaks(ecg_signal, height=np.max(ecg_signal) * 0.6, distance=fs*0.6)
 
 # Función para detectar el inicio y el final de cada onda R
-def detectar_limites(signal, picos):
+def detectar_limites(signal, picos, min_distancia=10):
     inicios = []
     finales = []
 
@@ -39,6 +39,10 @@ def detectar_limites(signal, picos):
         final = pico
         while final < len(signal) - 1 and signal[final] > signal[final + 1]:
             final += 1
+        
+        # Asegurar que el final no sea el mismo punto que el pico R
+        if final - pico < min_distancia:
+            final = min(pico + min_distancia, len(signal) - 1)
 
         inicios.append(inicio)
         finales.append(final)
