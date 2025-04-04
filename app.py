@@ -4,7 +4,7 @@ import numpy as np
 from scipy.signal import find_peaks
 
 # Ruta del archivo de registro ECG
-record_name = r"D:\Proyectos\Señales_EGS\QT_Database\sel30\sel30"
+record_name = r"./QT_Database/sel30/sel30"
 
 # Leer el registro ECG
 record = wfdb.rdrecord(record_name)
