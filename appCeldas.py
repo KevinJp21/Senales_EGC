@@ -76,54 +76,65 @@ plt.legend()
 plt.grid()
 plt.show()
 
-#%% Funciones de visualización interactiva
+#%% Funciones de visualización interactiva de ondas R originales
 def visualizar_onda(index):
     if not plt.get_fignums():  # Si no hay figuras abiertas, crear una nueva
-        global fig, ax
-        fig, ax = plt.subplots(figsize=(10, 6))
-        fig.canvas.mpl_connect("key_press_event", on_key)
+        global fig_orig, ax_orig
+        fig_orig, ax_orig = plt.subplots(figsize=(10, 6))
+        fig_orig.canvas.mpl_connect("key_press_event", on_key)
     
-    ax.clear()
-    ax.plot(tiempos_r[index], ondas_r[index], color='c', linewidth=2)
-    ax.set_title(f'Onda R {index+1} de {len(ondas_r)}')
-    ax.set_xlabel('Tiempo (s)')
-    ax.set_ylabel('Amplitud')
-    ax.grid(True)
+    ax_orig.clear()
+    ax_orig.plot(tiempos_r[index], ondas_r[index], color='c', linewidth=2)
+    ax_orig.set_title(f'Onda R Original {index+1} de {len(ondas_r)}')
+    ax_orig.set_xlabel('Tiempo (s)')
+    ax_orig.set_ylabel('Amplitud')
+    ax_orig.grid(True)
     plt.draw()
     plt.pause(0.1)  # Pequeña pausa para actualizar la figura
 
     # Imprimir los datos en la consola con tiempos
-    print(f"\n📊 Datos de la Onda R {index+1} (Tiempo - Amplitud):")
+    print(f"\n📊 Datos de la Onda R Original {index+1} (Tiempo - Amplitud):")
     for t, amp in zip(tiempos_r[index], ondas_r[index]):
         print(f"{t:.5f} s -> {amp:.5f}")
 
 def on_key(event):
-    global index
+    global index_orig
     if event.key == "right":
-        index = (index + 1) % len(ondas_r)  # Avanzar
-        visualizar_onda(index)
+        index_orig = (index_orig + 1) % len(ondas_r)  # Avanzar
+        visualizar_onda(index_orig)
     elif event.key == "left":
-        index = (index - 1) % len(ondas_r)  # Retroceder
-        visualizar_onda(index)
+        index_orig = (index_orig - 1) % len(ondas_r)  # Retroceder
+        visualizar_onda(index_orig)
 
-#%% Inicialización de la visualización interactiva
+#%% Inicialización de la visualización interactiva original
 # Asegurarse de que todas las variables necesarias estén definidas
 if 'ondas_r' in locals() and 'tiempos_r' in locals():
-    index = 0
-    visualizar_onda(index)
+    index_orig = 0
+    visualizar_onda(index_orig)
     plt.show(block=True)  # Bloquear la ejecución para mantener la ventana abierta
 else:
     print("Error: Las variables 'ondas_r' y 'tiempos_r' no están definidas. Ejecuta las celdas anteriores primero.")
 
-#%% Estandarización de ondas R a 120ms
+#%% Estandarización y normalización de ondas R
 # Preparar las ventanas centradas en cada pico R (duración de 120 ms)
 ventana_ms = 120
 ventana_muestras = int((ventana_ms / 1000) * fs)
 
-ondas_r_estandarizadas = []
-tiempos_r_estandarizados = []
-duraciones_r = []
+# Estructuras para almacenar los datos
+datos_ondas = {
+    'ondas_originales': [],
+    'ondas_normalizadas': [],
+    'tiempos': [],
+    'duraciones': [],
+    'etiquetas': [],  # Agregamos las etiquetas binarias
+    'metadata': {
+        'frecuencia_muestreo': fs,
+        'ventana_ms': ventana_ms,
+        'muestras_por_ventana': ventana_muestras
+    }
+}
 
+# Extraer y normalizar cada onda R
 for pico in peaks:
     mitad = ventana_muestras // 2
     inicio = max(pico - mitad, 0)
@@ -135,77 +146,104 @@ for pico in peaks:
         elif final == len(ecg_signal):
             inicio = len(ecg_signal) - ventana_muestras
 
-    ondas_r_estandarizadas.append(ecg_signal[inicio:final])
-    tiempos_r_estandarizados.append(time_axis[inicio:final])
-    duraciones_r.append(time_axis[final - 1] - time_axis[inicio])
+    # Extraer la onda original
+    onda_original = ecg_signal[inicio:final]
+    tiempo_onda = time_axis[inicio:final]
+    duracion = time_axis[final - 1] - time_axis[inicio]
 
-#%% Visualización interactiva de ondas R estandarizadas
-def visualizar_onda_estandarizada(index):
-    if not plt.get_fignums():  # Si no hay figuras abiertas, crear una nueva
-        global fig_est, ax_est
-        fig_est, ax_est = plt.subplots(figsize=(10, 6))
-        fig_est.canvas.mpl_connect("key_press_event", on_key_estandarizada)
+    # Normalizar usando la fórmula (X + |B|)/(A-B)
+    A = 400  # max valor
+    B = -200  # min valor
+    onda_normalizada = (onda_original + abs(B)) / (A - B)
+
+    # Generar etiquetas binarias (1 en el pico R, 0 en el resto)
+    etiquetas = np.zeros_like(onda_original)
+    pos_pico = mitad  # El pico R está en el centro de la ventana
+    etiquetas[pos_pico] = 1
+
+    # Almacenar los datos
+    datos_ondas['ondas_originales'].append(onda_original)
+    datos_ondas['ondas_normalizadas'].append(onda_normalizada)
+    datos_ondas['tiempos'].append(tiempo_onda)
+    datos_ondas['duraciones'].append(duracion)
+    datos_ondas['etiquetas'].append(etiquetas)
+
+# Convertir listas a arrays de numpy para mejor manejo
+datos_ondas['ondas_originales'] = np.array(datos_ondas['ondas_originales'])
+datos_ondas['ondas_normalizadas'] = np.array(datos_ondas['ondas_normalizadas'])
+datos_ondas['tiempos'] = np.array(datos_ondas['tiempos'])
+datos_ondas['duraciones'] = np.array(datos_ondas['duraciones'])
+datos_ondas['etiquetas'] = np.array(datos_ondas['etiquetas'])
+
+#%% Visualización interactiva de ondas R normalizadas con etiquetas
+def visualizar_onda_normalizada(index):
+    if not plt.get_fignums():
+        global fig_norm, ax_norm
+        fig_norm, ax_norm = plt.subplots(figsize=(10, 6))
+        fig_norm.canvas.mpl_connect("key_press_event", on_key_normalizada)
     
-    ax_est.clear()
-    ax_est.plot(tiempos_r_estandarizados[index], ondas_r_estandarizadas[index], color='c', linewidth=2)
-    ax_est.set_title(f'Onda R estandarizada {index+1} de {len(ondas_r_estandarizadas)}\nDuración: {duraciones_r[index]:.2f} ms')
-    ax_est.set_xlabel('Tiempo (s)')
-    ax_est.set_ylabel('Amplitud')
-    ax_est.grid(True)
+    ax_norm.clear()
+    # Graficar la onda normalizada
+    ax_norm.plot(datos_ondas['tiempos'][index], 
+                datos_ondas['ondas_normalizadas'][index], 
+                color='c', linewidth=2, label='Señal')
+    
+    # Marcar los puntos etiquetados como 1 (picos R)
+    etiquetas = datos_ondas['etiquetas'][index]
+    tiempo_pico = datos_ondas['tiempos'][index][etiquetas == 1]
+    valor_pico = datos_ondas['ondas_normalizadas'][index][etiquetas == 1]
+    ax_norm.scatter(tiempo_pico, valor_pico, color='r', s=100, label='Pico R (1)')
+    
+    ax_norm.set_title(f'Onda R normalizada {index+1} de {len(datos_ondas["ondas_normalizadas"])}\n'
+                     f'Duración: {datos_ondas["duraciones"][index]:.2f} s')
+    ax_norm.set_xlabel('Tiempo (s)')
+    ax_norm.set_ylabel('Amplitud Normalizada')
+    ax_norm.legend()
+    ax_norm.grid(True)
     plt.draw()
     plt.pause(0.1)
 
-    print(f"\n📊 Datos de la Onda R estandarizada {index+1}:")
-    print(f"Duración: {duraciones_r[index]:.2f} ms")
-    print("Tiempo (s) -> Amplitud")
-    for t, amp in zip(tiempos_r_estandarizados[index], ondas_r_estandarizadas[index]):
-        print(f"{t:.5f} -> {amp:.5f}")
+    print(f"\n📊 Datos de la Onda R normalizada {index+1}:")
+    print(f"Duración: {datos_ondas['duraciones'][index]:.2f} s")
+    print("Tiempo (s) -> Amplitud normalizada -> Etiqueta")
+    for t, amp, etiq in zip(datos_ondas['tiempos'][index], 
+                           datos_ondas['ondas_normalizadas'][index],
+                           datos_ondas['etiquetas'][index]):
+        print(f"{t:.5f} -> {amp:.5f} -> {int(etiq)}")
 
-def on_key_estandarizada(event):
-    global index_est
+def on_key_normalizada(event):
+    global index_norm
     if event.key == "right":
-        index_est = (index_est + 1) % len(ondas_r_estandarizadas)
-        visualizar_onda_estandarizada(index_est)
+        index_norm = (index_norm + 1) % len(datos_ondas['ondas_normalizadas'])
+        visualizar_onda_normalizada(index_norm)
     elif event.key == "left":
-        index_est = (index_est - 1) % len(ondas_r_estandarizadas)
-        visualizar_onda_estandarizada(index_est)
+        index_norm = (index_norm - 1) % len(datos_ondas['ondas_normalizadas'])
+        visualizar_onda_normalizada(index_norm)
 
-# Inicializar visualización de ondas R estandarizadas
-if 'ondas_r_estandarizadas' in locals():
-    index_est = 0
-    visualizar_onda_estandarizada(index_est)
+#%% Inicialización de visualización de ondas normalizadas
+if len(datos_ondas['ondas_normalizadas']) > 0:
+    index_norm = 0
+    visualizar_onda_normalizada(index_norm)
     plt.show(block=True)
 else:
-    print("Error: Las ondas R estandarizadas no están definidas. Ejecuta las celdas anteriores primero.")
+    print("Error: No se encontraron ondas R para normalizar.")
 
-#%% Visualización de ondas R estandarizadas concatenadas
-# Concatenar todas las ondas R estandarizadas
-ecg_reconstruido = np.concatenate(ondas_r_estandarizadas)
+#%% Guardar los datos procesados para entrenamiento
+# Preparar los datos en formato para entrenamiento
+datos_entrenamiento = {
+    'X': datos_ondas['ondas_normalizadas'],  # Features (señales normalizadas)
+    'y': datos_ondas['etiquetas'],           # Labels (etiquetas binarias)
+    'metadata': datos_ondas['metadata']      # Información adicional
+}
 
-# Normalizar amplitud al rango [0, 1]
-min_val = np.min(ecg_reconstruido)
-max_val = np.max(ecg_reconstruido)
-ecg_normalizada = (ecg_reconstruido - min_val) / (max_val - min_val)
+# Guardar los datos
+np.save('datos_entrenamiento.npy', datos_entrenamiento)
 
-# Reconstruir el eje de tiempo desde 0
-tiempo_total = []
-tiempo_actual = 0
-for duracion, tiempos in zip(duraciones_r, tiempos_r_estandarizados):
-    delta_tiempo = tiempos - tiempos[0]
-    tiempo_segmento = tiempo_actual + delta_tiempo
-    tiempo_total.extend(tiempo_segmento)
-    tiempo_actual = tiempo_segmento[-1] + 1  # dejar 1 ms de separación
-
-# Graficar señal reconstruida normalizada
-plt.figure(figsize=(14, 4))
-plt.plot(tiempo_total, ecg_normalizada, color='darkblue', linewidth=1.5)
-plt.title('Señal ECG reconstruida con ondas R estandarizadas (normalizada a 0–1)')
-plt.xlabel('Tiempo (s)')
-plt.ylabel('Amplitud Normalizada (0–1)')
-plt.ylim(0, 1)
-plt.grid(True)
-plt.tight_layout()
-plt.show()
+print("\nResumen de los datos guardados para entrenamiento:")
+print(f"Número total de ondas R: {len(datos_entrenamiento['X'])}")
+print(f"Dimensiones de cada onda: {datos_entrenamiento['X'][0].shape}")
+print(f"Frecuencia de muestreo: {datos_entrenamiento['metadata']['frecuencia_muestreo']} Hz")
+print(f"Ventana temporal: {datos_entrenamiento['metadata']['ventana_ms']} ms")
 
 # %%
 
