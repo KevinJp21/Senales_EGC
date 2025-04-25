@@ -1,62 +1,77 @@
 # Procesamiento de Señales ECG
 
-Este script realiza un procesamiento básico de una señal ECG usando Python. El objetivo es detectar ondas R en un registro de 10 segundos, visualizarlas individualmente, y reconstruir una señal a partir de ellas. A continuación, se describe brevemente el flujo de trabajo:
+Este proyecto realiza un procesamiento de señales ECG usando Python. El objetivo es detectar ondas R en un registro de 10 segundos, visualizarlas individualmente, y almacenar los datos procesados para su análisis. A continuación, se describe brevemente el flujo de trabajo:
 
 ## Flujo de Trabajo
 
-1. **Lectura del archivo ECG**
-   - Se carga una señal ECG del conjunto de datos QT Database (Carpeta que contiene los archivos sel30 por ejemplo) mediante la librería wfdb, extrayendo solo los primeros 10 segundos del primer canal.
+1. **Lectura del archivo ECG** (`appCeldas.py`)
+   - Se carga una señal ECG del conjunto de datos QT Database mediante la librería wfdb
+   - Se extraen los primeros 10 segundos del primer canal
 
-2. **Eje de tiempo en milisegundos**
-   - Se construye un eje de tiempo para graficar la señal con precisión temporal.
+2. **Procesamiento de la señal**
+   - Se construye un eje de tiempo para la señal
+   - Se detectan los picos R usando find_peaks
+   - Se extraen ventanas de 120 ms centradas en cada pico R
+   - Se normalizan las amplitudes de las ondas
+   - Se generan etiquetas binarias (1 en el pico R, 0 en el resto)
 
-3. **Detección de ondas R**
-   - Se identifican los picos R (los más representativos del ciclo cardíaco) utilizando find_peaks, con un umbral basado en la amplitud máxima de la señal.
+3. **Almacenamiento de datos** (`datos_ondas.json`)
+   - Los datos procesados se guardan en formato JSON con la siguiente estructura:
+     - `senales_normalizadas`: Amplitudes normalizadas de cada onda
+     - `etiquetas`: Etiquetas binarias para cada muestra
+     - `tiempos`: Tiempos correspondientes a cada muestra
+     - `duraciones`: Duración de cada ventana
+     - `metadata`: Información sobre frecuencia de muestreo y parámetros
 
-4. **Extracción de segmentos centrados en picos R**
-   - Se extraen ventanas de 120 ms centradas en cada pico R. Esto permite estandarizar la duración de cada onda para que todas las muestras tengan la misma longitud.
-
-5. **Visualización**
-   - Se muestra la señal ECG original con los picos R resaltados.
-   - Se permite al usuario navegar entre ondas individuales usando las flechas del teclado, observando los valores de amplitud y tiempo de cada segmento.
-
-6. **Gráfica final**
-   - Se presentan las ondas R de forma concatenada. Esto permite visualizar cómo sería una señal ECG compuesta únicamente por los segmentos estandarizados de cada latido.
-
-## Requisitos
-
-Para ejecutar este script, necesitarás las siguientes librerías de Python:
-
-```bash
-pip install wfdb matplotlib numpy scipy
-```
+4. **Visualización** (`visualizar_datos.py`)
+   - Visualización interactiva de ondas individuales
+   - Visualización de todas las ondas superpuestas
+   - Información detallada de cada onda:
+     - Tiempo absoluto y relativo del pico R
+     - Valor normalizado en el pico
+     - Duración de la ventana
 
 ## Estructura del Proyecto
 
 ```
 .
-├── app.py              # Script principal
-├── QT_Database/        # Carpeta con los archivos de señales ECG
-│   └── sel30/         # Ejemplo de registro ECG
-└── README.md          # Este archivo
+├── appCeldas.py        # Script de procesamiento principal
+├── visualizar_datos.py # Script de visualización
+├── datos_ondas.json   # Datos procesados
+├── QT_Database/       # Carpeta con los archivos de señales ECG
+│   └── sel30/        # Ejemplo de registro ECG
+└── README.md         # Este archivo
 ```
 
 ## Uso
 
 1. Asegúrate de tener los archivos de señales ECG en la carpeta `QT_Database`
-2. Ejecuta el script:
+
+2. Procesa los datos:
    ```bash
-   python app.py
+   python appCeldas.py
    ```
-3. Interactúa con la visualización:
-   - Usa la flecha derecha (→) para ver la siguiente onda R
-   - Usa la flecha izquierda (←) para ver la onda R anterior
-   - Cierra la ventana para terminar la visualización
+   Esto generará el archivo `datos_ondas.json`
+
+3. Visualiza los resultados:
+   ```bash
+   python visualizar_datos.py
+   ```
+
+4. Interactúa con la visualización:
+   - Ejecuta las celdas individualmente en tu IDE
+   - Para ver ondas individuales:
+     - Usa la flecha derecha (→) para la siguiente onda
+     - Usa la flecha izquierda (←) para la onda anterior
+     - Presiona ESC para cerrar la ventana
+   - Para ver todas las ondas superpuestas, ejecuta la celda correspondiente
 
 ## Notas
 - La señal ECG debe estar en formato compatible con wfdb
-- El script está configurado para analizar los primeros 10 segundos de la señal
-- Los parámetros de detección de picos pueden necesitar ajustes según la señal específica
+- Los datos procesados se normalizan para facilitar su análisis
+- Cada onda R se estandariza a una ventana de 120 ms
+- Los tiempos se almacenan tanto en absolutos como relativos
+- La visualización permite analizar cada onda en detalle
 
 # Creación de Entorno Virtual e Instalación de Dependencias
 
@@ -83,7 +98,7 @@ python3 -m venv venv
 
 Para activar el entorno:
 ```sh
-.\.venv\Scripts\activate
+source ./venv/bin/activate
 ```
 
 ---
@@ -100,12 +115,17 @@ pip install -r requirements.txt
 
 ## 3. Ejecutar
 
-Para ejecutar escribe el siguiente comando
+Para procesar los datos:
 ```sh
-py app.py
+python appCeldas.py
 ```
 
-A continuación, se abrirá una ventana con las señales. Al cerrar esa ventana, se abrirá otra mostrando cada onda R. Usa las direccionales del teclado para navegar hacia la izquierda o derecha.
+Para visualizar los resultados:
+```sh
+python visualizar_datos.py
+```
+
+Usa tu IDE favorito para ejecutar las celdas individualmente y explorar los datos interactivamente.
 
 ---
 
