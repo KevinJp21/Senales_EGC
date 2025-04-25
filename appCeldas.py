@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 plt.ion()  # Activar modo interactivo
 import numpy as np
 from scipy.signal import find_peaks
+import pandas as pd
+import json
 
 #%% Configuración inicial y carga de datos
 # Ruta del archivo de registro ECG
@@ -229,21 +231,25 @@ else:
     print("Error: No se encontraron ondas R para normalizar.")
 
 #%% Guardar los datos procesados para entrenamiento
-# Preparar los datos en formato para entrenamiento
-datos_entrenamiento = {
-    'X': datos_ondas['ondas_normalizadas'],  # Features (señales normalizadas)
-    'y': datos_ondas['etiquetas'],           # Labels (etiquetas binarias)
-    'metadata': datos_ondas['metadata']      # Información adicional
+# Preparar los datos en formato JSON
+datos_json = {
+    'señales_normalizadas': datos_ondas['ondas_normalizadas'].tolist(),
+    'etiquetas': datos_ondas['etiquetas'].tolist(),
+    'tiempos': datos_ondas['tiempos'].tolist(),
+    'duraciones': datos_ondas['duraciones'].tolist(),
+    'metadata': datos_ondas['metadata']
 }
 
-# Guardar los datos
-np.save('datos_entrenamiento.npy', datos_entrenamiento)
+# Guardar los datos en un archivo JSON
+with open('datos_ondas.json', 'w') as f:
+    json.dump(datos_json, f, indent=4)
 
-print("\nResumen de los datos guardados para entrenamiento:")
-print(f"Número total de ondas R: {len(datos_entrenamiento['X'])}")
-print(f"Dimensiones de cada onda: {datos_entrenamiento['X'][0].shape}")
-print(f"Frecuencia de muestreo: {datos_entrenamiento['metadata']['frecuencia_muestreo']} Hz")
-print(f"Ventana temporal: {datos_entrenamiento['metadata']['ventana_ms']} ms")
+print("\nResumen de los datos guardados en JSON:")
+print(f"Número total de ondas R: {len(datos_json['señales_normalizadas'])}")
+print(f"Dimensiones de cada onda: {len(datos_json['señales_normalizadas'][0])}")
+print(f"Frecuencia de muestreo: {datos_json['metadata']['frecuencia_muestreo']} Hz")
+print(f"Ventana temporal: {datos_json['metadata']['ventana_ms']} ms")
+print("\nArchivo JSON creado: datos_ondas.json")
 
 # %%
 

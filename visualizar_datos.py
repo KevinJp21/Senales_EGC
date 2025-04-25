@@ -1,15 +1,23 @@
+#%% Importación de librerías
 import numpy as np
+import matplotlib
+matplotlib.use('TkAgg')  # Configurar el backend interactivo
 import matplotlib.pyplot as plt
+plt.ion()  # Activar modo interactivo
+import json
 
-# Cargar los datos
-datos = np.load('datos_entrenamiento.npy', allow_pickle=True).item()
+#%% Cargar los datos desde JSON
+with open('datos_ondas.json', 'r') as f:
+    datos = json.load(f)
 
-# Extraer los datos
-X = datos['X']  # Señales normalizadas
-y = datos['y']  # Etiquetas
+# Convertir los datos a arrays de numpy
+X = np.array(datos['senales_normalizadas'])
+y = np.array(datos['etiquetas'])
+tiempos = np.array(datos['tiempos'])
+duraciones = np.array(datos['duraciones'])
 metadata = datos['metadata']
 
-# Mostrar información general
+#%% Mostrar información general
 print("\n📊 Información general de los datos:")
 print("=" * 50)
 print(f"Frecuencia de muestreo: {metadata['frecuencia_muestreo']} Hz")
@@ -24,6 +32,7 @@ print(f"Número total de ondas R detectadas: {len(X)}")
 print(f"Dimensiones de cada onda: {X[0].shape}")
 print("=" * 50)
 
+#%% Definición de funciones de visualización
 def visualizar_onda_interactiva(index):
     """Visualiza una onda específica con sus etiquetas de forma interactiva"""
     if not plt.get_fignums():
@@ -71,6 +80,7 @@ def visualizar_onda_interactiva(index):
     print(f"Posición del pico R: Muestra {puntos_pico[0]} de {metadata['muestras_por_ventana']}")
     print(f"  → Tiempo del pico: {tiempo_pico_ms:.2f} ms desde inicio de ventana")
     print(f"  → Valor normalizado en el pico: {X[index][puntos_pico[0]]:.5f}")
+    print(f"  → Duración de la onda: {duraciones[index]:.2f} s")
     print("=" * 50)
 
 def on_key(event):
@@ -99,23 +109,15 @@ def visualizar_todas_ondas():
     plt.grid(True)
     plt.show()
 
-# Menú interactivo
-while True:
-    print("\n🔍 Opciones de visualización:")
-    print("1. Ver ondas individualmente (use ← → para navegar, ESC para salir)")
-    print("2. Ver todas las ondas superpuestas")
-    print("3. Salir")
-    
-    opcion = input("\nSeleccione una opción (1-3): ")
-    
-    if opcion == '1':
-        current_index = 0
-        visualizar_onda_interactiva(current_index)
-        plt.show(block=True)
-    elif opcion == '2':
-        visualizar_todas_ondas()
-    elif opcion == '3':
-        print("¡Hasta luego!")
-        break
-    else:
-        print("Opción no válida. Intente de nuevo.") 
+#%% Visualización interactiva de ondas individuales
+# Ejecutar esta celda para ver las ondas una por una
+# Use las flechas ← → para navegar y ESC para salir
+current_index = 0
+visualizar_onda_interactiva(current_index)
+plt.show(block=True)
+
+#%% Visualización de todas las ondas superpuestas
+# Ejecutar esta celda para ver todas las ondas juntas
+visualizar_todas_ondas()
+
+# %%
