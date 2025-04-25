@@ -100,3 +100,4 @@ fig, ax = plt.subplots()
 fig.canvas.mpl_connect("key_press_event", on_key)
 visualizar_onda(index)
 plt.show()
+
