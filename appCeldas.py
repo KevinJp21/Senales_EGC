@@ -29,7 +29,7 @@ ecg_signal = record.p_signal[:samples_10s, 0]
 time_axis = np.arange(samples_10s) / fs
 
 #%% Detección de ondas R
-peaks, _ = find_peaks(ecg_signal, height=np.max(ecg_signal) * 0.6, distance=fs*0.6)
+peaks, _ = find_peaks(ecg_signal, height=np.max(ecg_signal) * 0.6, distance=fs*0.6) #solo se detectarán picos cuya altura sea al menos el 60% del valor máximo de la señal.
 
 #%% Definición de funciones auxiliares
 def detectar_limites(signal, picos, min_distancia=10):
