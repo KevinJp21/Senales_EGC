@@ -154,8 +154,8 @@ for pico in peaks:
     duracion = time_axis[final - 1] - time_axis[inicio]
 
     # Normalizar usando la fórmula (X + |B|)/(A-B)
-    A = 400  # max valor
-    B = -200  # min valor
+    A = np.max(onda_original)  # max valor
+    B = np.min(onda_original)  # min valor
     onda_normalizada = (onda_original + abs(B)) / (A - B)
 
     # Generar etiquetas binarias (1 en el pico R, 0 en el resto)
@@ -229,6 +229,28 @@ if len(datos_ondas['ondas_normalizadas']) > 0:
     plt.show(block=True)
 else:
     print("Error: No se encontraron ondas R para normalizar.")
+
+#%% Visualización de todas las ondas normalizadas concatenadas
+plt.figure(figsize=(15, 6))
+
+# Concatenar todas las ondas
+señal_completa = np.concatenate(datos_ondas['ondas_normalizadas'])
+# Crear un eje de tiempo continuo
+tiempo_completo = np.arange(len(señal_completa)) / fs
+
+# Graficar la señal concatenada
+plt.plot(tiempo_completo, señal_completa, 'b-', linewidth=1)
+
+# Marcar los puntos donde comienza cada onda
+tiempo_acumulado = 0
+for i, onda in enumerate(datos_ondas['ondas_normalizadas']):
+    tiempo_acumulado += len(onda) / fs
+
+plt.title('Señal ECG Concatenada de Ondas R Normalizadas')
+plt.xlabel('Tiempo (s)')
+plt.ylabel('Amplitud Normalizada')
+plt.grid(True)
+plt.show()
 
 #%% Guardar los datos procesados para entrenamiento
 # Preparar los datos en formato JSON
