@@ -128,7 +128,6 @@ datos_ondas = {
     'ondas_normalizadas': [],
     'tiempos': [],
     'duraciones': [],
-    'etiquetas': [],  # Agregamos las etiquetas binarias
     'metadata': {
         'frecuencia_muestreo': fs,
         'ventana_ms': ventana_ms,
@@ -158,26 +157,19 @@ for pico in peaks:
     B = np.min(onda_original)  # min valor
     onda_normalizada = (onda_original - B) / (A - B)
 
-    # Generar etiquetas binarias (1 en el pico R, 0 en el resto)
-    etiquetas = np.zeros_like(onda_original)
-    pos_pico = mitad  # El pico R está en el centro de la ventana
-    etiquetas[pos_pico] = 1
-
     # Almacenar los datos
     datos_ondas['ondas_originales'].append(onda_original)
     datos_ondas['ondas_normalizadas'].append(onda_normalizada)
     datos_ondas['tiempos'].append(tiempo_onda)
     datos_ondas['duraciones'].append(duracion)
-    datos_ondas['etiquetas'].append(etiquetas)
 
 # Convertir listas a arrays de numpy para mejor manejo
 datos_ondas['ondas_originales'] = np.array(datos_ondas['ondas_originales'])
 datos_ondas['ondas_normalizadas'] = np.array(datos_ondas['ondas_normalizadas'])
 datos_ondas['tiempos'] = np.array(datos_ondas['tiempos'])
 datos_ondas['duraciones'] = np.array(datos_ondas['duraciones'])
-datos_ondas['etiquetas'] = np.array(datos_ondas['etiquetas'])
 
-#%% Visualización interactiva de ondas R normalizadas con etiquetas
+#%% Visualización interactiva de ondas R normalizadas
 def visualizar_onda_normalizada(index):
     if not plt.get_fignums():
         global fig_norm, ax_norm
@@ -190,12 +182,6 @@ def visualizar_onda_normalizada(index):
                 datos_ondas['ondas_normalizadas'][index], 
                 color='c', linewidth=2, label='Señal')
     
-    # Marcar los puntos etiquetados como 1 (picos R)
-    etiquetas = datos_ondas['etiquetas'][index]
-    tiempo_pico = datos_ondas['tiempos'][index][etiquetas == 1]
-    valor_pico = datos_ondas['ondas_normalizadas'][index][etiquetas == 1]
-    ax_norm.scatter(tiempo_pico, valor_pico, color='r', s=100, label='Pico R (1)')
-    
     ax_norm.set_title(f'Onda R normalizada {index+1} de {len(datos_ondas["ondas_normalizadas"])}\n'
                      f'Duración: {datos_ondas["duraciones"][index]:.2f} s')
     ax_norm.set_xlabel('Tiempo (s)')
@@ -207,11 +193,10 @@ def visualizar_onda_normalizada(index):
 
     print(f"\n📊 Datos de la Onda R normalizada {index+1}:")
     print(f"Duración: {datos_ondas['duraciones'][index]:.2f} s")
-    print("Tiempo (s) -> Amplitud normalizada -> Etiqueta")
-    for t, amp, etiq in zip(datos_ondas['tiempos'][index], 
-                           datos_ondas['ondas_normalizadas'][index],
-                           datos_ondas['etiquetas'][index]):
-        print(f"{t:.5f} -> {amp:.5f} -> {int(etiq)}")
+    print("Tiempo (s) -> Amplitud normalizada")
+    for t, amp in zip(datos_ondas['tiempos'][index], 
+                       datos_ondas['ondas_normalizadas'][index]):
+        print(f"{t:.5f} -> {amp:.5f}")
 
 def on_key_normalizada(event):
     global index_norm
@@ -241,11 +226,6 @@ tiempo_completo = np.arange(len(señal_completa)) / fs
 # Graficar la señal concatenada
 plt.plot(tiempo_completo, señal_completa, 'b-', linewidth=1)
 
-# Marcar los puntos donde comienza cada onda
-tiempo_acumulado = 0
-for i, onda in enumerate(datos_ondas['ondas_normalizadas']):
-    tiempo_acumulado += len(onda) / fs
-
 plt.title('Señal ECG Concatenada de Ondas R Normalizadas')
 plt.xlabel('Tiempo (s)')
 plt.ylabel('Amplitud Normalizada')
@@ -256,9 +236,6 @@ plt.show()
 # Preparar los datos en formato JSON
 datos_json = {
     'senales_normalizadas': datos_ondas['ondas_normalizadas'].tolist(),
-    'etiquetas': datos_ondas['etiquetas'].tolist(),
-    'tiempos': datos_ondas['tiempos'].tolist(),
-    'duraciones': datos_ondas['duraciones'].tolist(),
     'metadata': datos_ondas['metadata']
 }
 
