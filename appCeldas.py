@@ -19,14 +19,11 @@ record = wfdb.rdrecord(record_name)
 # Obtener la frecuencia de muestreo
 fs = record.fs  
 
-# Calcular cuántas muestras corresponden a 10 segundos
-samples_10s = int(fs * 10)
-
-# Extraer los primeros 10 segundos del primer canal de ECG
-ecg_signal = record.p_signal[:samples_10s, 0]  
+# Extraer todo el canal de ECG
+ecg_signal = record.p_signal[:, 0]
 
 # Crear el eje de tiempo
-time_axis = np.arange(samples_10s) / fs
+time_axis = np.arange(len(ecg_signal)) / fs
 
 #%% Detección de ondas R
 peaks, _ = find_peaks(ecg_signal, height=np.max(ecg_signal) * 0.6, distance=fs*0.6) #solo se detectarán picos cuya altura sea al menos el 60% del valor máximo de la señal.
