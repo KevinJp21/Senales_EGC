@@ -153,10 +153,10 @@ for pico in peaks:
     tiempo_onda = time_axis[inicio:final]
     duracion = time_axis[final - 1] - time_axis[inicio]
 
-    # Normalizar usando la fórmula (X + |B|)/(A-B)
+    # Normalizar usando la fórmula (X - B)/(A-B)
     A = np.max(onda_original)  # max valor
     B = np.min(onda_original)  # min valor
-    onda_normalizada = (onda_original + abs(B)) / (A - B)
+    onda_normalizada = (onda_original - B) / (A - B)
 
     # Generar etiquetas binarias (1 en el pico R, 0 en el resto)
     etiquetas = np.zeros_like(onda_original)
@@ -255,7 +255,7 @@ plt.show()
 #%% Guardar los datos procesados para entrenamiento
 # Preparar los datos en formato JSON
 datos_json = {
-    'señales_normalizadas': datos_ondas['ondas_normalizadas'].tolist(),
+    'senales_normalizadas': datos_ondas['ondas_normalizadas'].tolist(),
     'etiquetas': datos_ondas['etiquetas'].tolist(),
     'tiempos': datos_ondas['tiempos'].tolist(),
     'duraciones': datos_ondas['duraciones'].tolist(),
@@ -267,8 +267,8 @@ with open('datos_ondas.json', 'w') as f:
     json.dump(datos_json, f, indent=4)
 
 print("\nResumen de los datos guardados en JSON:")
-print(f"Número total de ondas R: {len(datos_json['señales_normalizadas'])}")
-print(f"Dimensiones de cada onda: {len(datos_json['señales_normalizadas'][0])}")
+print(f"Número total de ondas R: {len(datos_json['senales_normalizadas'])}")
+print(f"Dimensiones de cada onda: {len(datos_json['senales_normalizadas'][0])}")
 print(f"Frecuencia de muestreo: {datos_json['metadata']['frecuencia_muestreo']} Hz")
 print(f"Ventana temporal: {datos_json['metadata']['ventana_ms']} ms")
 print("\nArchivo JSON creado: datos_ondas.json")
