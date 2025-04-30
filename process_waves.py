@@ -26,7 +26,15 @@ ecgsignal = record.p_signal[:, 0]
 timeaxis = np.arange(len(ecgsignal)) / fs
 
 #%% Detección de ondas R
-rpeaks, _ = find_peaks(ecgsignal, height=np.max(ecgsignal) * 0.6, distance=fs*0.6) #solo se detectarán picos cuya altura sea al menos el 60% del valor máximo de la señal.
+rpeaks, _ = find_peaks(ecgsignal, distance=fs*0.3, prominence=0.1)
+refined_peaks = []
+window_refine = int(0.05 * fs)  # 50 ms a cada lado
+for peak in rpeaks:
+    start = max(peak - window_refine, 0)
+    end = min(peak + window_refine, len(ecgsignal))
+    local_max = np.argmax(ecgsignal[start:end])
+    refined_peaks.append(start + local_max)
+rpeaks = np.array(refined_peaks)
 
 #%% Definición de funciones auxiliares
 def detect_limits(signal, peaks, min_distance=10):
