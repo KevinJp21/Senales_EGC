@@ -29,15 +29,6 @@ timeaxis = np.arange(len(ecgsignal)) / fs
 # Cargar el archivo CSV con las anotaciones
 annotations_df = pd.read_csv('ondas_R.csv')
 
-# Función para convertir tiempo de formato HH:MM:SS.mmm a segundos
-def time_to_seconds(time_str):
-    time_format = "%H:%M:%S.%f"
-    time_obj = datetime.strptime(time_str, time_format)
-    return time_obj.hour * 3600 + time_obj.minute * 60 + time_obj.second + time_obj.microsecond / 1000000
-
-# Convertir los tiempos a segundos
-annotations_df['Time_seconds'] = annotations_df['Time'].apply(time_to_seconds)
-
 # Filtrar las anotaciones por tipo
 start_points = annotations_df[annotations_df['Type'] == '(']
 r_points = annotations_df[annotations_df['Type'] == 'N']
@@ -47,30 +38,33 @@ end_points = annotations_df[annotations_df['Type'] == ')']
 min_length = min(len(start_points), len(r_points), len(end_points))
 print(f"Total de ondas R encontradas en el CSV: {min_length}")
 
-# Extraer los tiempos y convertirlos a índices de muestra
-start_indices = [int(time * fs) for time in start_points['Time_seconds'][:min_length]]
-r_peaks = [int(time * fs) for time in r_points['Time_seconds'][:min_length]]
-end_indices = [int(time * fs) for time in end_points['Time_seconds'][:min_length]]
+# Extraer los tiempos y convertirlos a índices de muestra (sin redondear)
+start_indices = [time * fs for time in start_points['Time'][:min_length]]
+end_indices = [time * fs for time in end_points['Time'][:min_length]]
 
-# Convertir a arrays de numpy
-start_indices = np.array(start_indices)
-r_peaks = np.array(r_peaks)
-end_indices = np.array(end_indices)
+# Convertir a arrays de numpy y redondear a enteros
+start_indices = np.round(start_indices).astype(int)
+end_indices = np.round(end_indices).astype(int)
 
 # Verificar que todos los índices están dentro del rango de la señal
 valid_indices = []
 for i in range(min_length):
-    if (start_indices[i] < len(ecgsignal) and 
-        r_peaks[i] < len(ecgsignal) and 
-        end_indices[i] < len(ecgsignal)):
+    if (start_indices[i] < len(ecgsignal) and end_indices[i] < len(ecgsignal)):
         valid_indices.append(i)
 
-print(f"Total de ondas R válidas (dentro del rango de la señal): {len(valid_indices)}")
-
-# Filtrar los índices
 start_indices = start_indices[valid_indices]
-r_peaks = r_peaks[valid_indices]
 end_indices = end_indices[valid_indices]
+
+# Calcular los picos R como el máximo local en cada segmento
+r_peaks_calculados = []
+for start, end in zip(start_indices, end_indices):
+    segmento = ecgsignal[start:end]
+    if len(segmento) > 0:
+        max_idx = np.argmax(segmento)
+        r_peaks_calculados.append(start + max_idx)
+    else:
+        r_peaks_calculados.append(start)
+r_peaks_calculados = np.array(r_peaks_calculados)
 
 #%% Extraer las ondas R basadas en los índices del CSV
 # Extraer las ondas R y almacenarlas en una lista con sus tiempos
@@ -80,7 +74,7 @@ times_r_waves = [timeaxis[start:end] for start, end in zip(start_indices, end_in
 #%% Visualización de la señal completa con las anotaciones del CSV
 plt.figure(figsize=(12, 4))
 plt.plot(timeaxis, ecgsignal, label="Señal ECG", color='m')
-plt.scatter(timeaxis[r_peaks], ecgsignal[r_peaks], color='r', label="Picos R (N)", marker="o")
+plt.scatter(timeaxis[r_peaks_calculados], ecgsignal[r_peaks_calculados], color='r', label="Picos R (calculados)", marker="o")
 plt.scatter(timeaxis[start_indices], ecgsignal[start_indices], color='g', label="Inicio (()", marker="x")
 plt.scatter(timeaxis[end_indices], ecgsignal[end_indices], color='b', label="Final ())", marker="x")
 
@@ -249,7 +243,10 @@ if len(data_waves['normalized_waves']) > 0:
         'metadata': {
             'frecuencia_muestreo': float(fs),
             'source': 'CSV annotations',
-            'total_waves': len(data_waves['normalized_waves'])
+            'total_waves': len(data_waves['normalized_waves']),
+            'start_indices': start_indices.tolist(),
+            'end_indices': end_indices.tolist(),
+            'r_peaks_calculados': r_peaks_calculados.tolist()
         }
     }
     

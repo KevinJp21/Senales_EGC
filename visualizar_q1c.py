@@ -1,7 +1,6 @@
 import wfdb
 import os
 import csv
-from datetime import timedelta
 
 # Ruta al archivo base (sin extensión)
 base = './QT_Database/sel30/sel30'
@@ -40,11 +39,7 @@ with open(csv_filename, mode='w', newline='') as csvfile:
             for j in range(3):  # imprimir y guardar los tres juntos: ( N )
                 idx = i + j
                 tiempo = anotaciones.sample[idx] / anotaciones.fs
-                td = timedelta(seconds=tiempo)
-                horas, resto = divmod(td.seconds, 3600)
-                minutos, segundos = divmod(resto, 60)
-                milisegundos = int(td.microseconds / 1000)
-                time_str = f"{horas:02}:{minutos:02}:{segundos:02}.{milisegundos:03}"
+                time_str = f"{tiempo:.3f}"  # Tiempo en segundos con 3 decimales
                 sample = anotaciones.sample[idx]
                 tipo = anotaciones.symbol[idx]
                 print(f"{time_str}\t{sample}\t{tipo}")
