@@ -135,34 +135,37 @@ data_waves = {
     }
 }
 
-# Extraer y normalizar cada onda R
-for start, end in zip(start_indices, end_indices):
-    # Extraer la onda original basada en las anotaciones del CSV
-    original_wave = ecgsignal[start:end] 
-    time_wave = timeaxis[start:end]
-    duration = timeaxis[end - 1] - timeaxis[start]
-    
-    # Normalizar usando la fórmula (X - B)/(A-B)
-    A = np.max(original_wave) # max valor
-    B = np.min(original_wave) # min valor
-    
-    # Evitar división por cero
-    if A == B:
-        normalized_wave = np.zeros_like(original_wave)
-    else:
-        normalized_wave = (original_wave - B) / (A - B)
-    
-    # Almacenar los datos
-    data_waves['original_waves'].append(original_wave)
-    data_waves['normalized_waves'].append(normalized_wave)
-    data_waves['times'].append(time_wave)
-    data_waves['durations'].append(duration)
+# Duración estándar en segundos
+duracion_estandar = 0.120
+longitud_estandar = int(duracion_estandar * fs)
 
-# Convertir listas a arrays de numpy para mejor manejo
-data_waves['original_waves'] = np.array(data_waves['original_waves'], dtype=object)
-data_waves['normalized_waves'] = np.array(data_waves['normalized_waves'], dtype=object)
-data_waves['times'] = np.array(data_waves['times'], dtype=object)
-data_waves['durations'] = np.array(data_waves['durations'])
+ondas_estandarizadas = []
+ondas_normalizadas = []
+tiempos_estandarizados = []
+
+for start, end in zip(start_indices, end_indices):
+    final = start + longitud_estandar
+    if final <= len(ecgsignal):
+        onda = ecgsignal[start:final]
+        tiempo = timeaxis[start:final]
+    else:
+        onda = ecgsignal[start:]
+        tiempo = timeaxis[start:]
+    ondas_estandarizadas.append(onda)
+    tiempos_estandarizados.append(tiempo)
+    
+    # Normalización
+    A = np.max(onda)
+    B = np.min(onda)
+    if A == B:
+        normalized_wave = np.zeros_like(onda)
+    else:
+        normalized_wave = (onda - B) / (A - B)
+    ondas_normalizadas.append(normalized_wave)
+
+ondas_estandarizadas = np.array(ondas_estandarizadas, dtype=object)
+ondas_normalizadas = np.array(ondas_normalizadas, dtype=object)
+tiempos_estandarizados = np.array(tiempos_estandarizados, dtype=object)
 
 #%% Visualización interactiva de ondas R normalizadas
 def visualizar_onda_normalizada(index):
@@ -172,11 +175,11 @@ def visualizar_onda_normalizada(index):
         fig_norm.canvas.mpl_connect("key_press_event", on_key_normalizada)
     ax_norm.clear()
     # Graficar la onda normalizada
-    ax_norm.plot(data_waves['times'][index], 
-                data_waves['normalized_waves'][index], 
+    ax_norm.plot(tiempos_estandarizados[index], 
+                ondas_normalizadas[index], 
                 color='c', linewidth=2, label='Señal')
-    ax_norm.set_title(f'Onda R normalizada {index+1} de {len(data_waves["normalized_waves"])}\n'
-                     f'Duración: {data_waves["durations"][index]:.2f} s')
+    ax_norm.set_title(f'Onda R normalizada {index+1} de {len(ondas_normalizadas)}\n'
+                     f'Duración: {tiempos_estandarizados[index][-1] - tiempos_estandarizados[index][0]:.2f} s')
     ax_norm.set_xlabel('Tiempo (s)')
     ax_norm.set_ylabel('Amplitud Normalizada')
     ax_norm.legend()
@@ -184,23 +187,23 @@ def visualizar_onda_normalizada(index):
     plt.draw()
     plt.pause(0.1)
     print(f"\n📊 Datos de la Onda R normalizada {index+1}:")
-    print(f"Duración: {data_waves['durations'][index]:.2f} s")
+    print(f"Duración: {tiempos_estandarizados[index][-1] - tiempos_estandarizados[index][0]:.2f} s")
     print("Tiempo (s) -> Amplitud normalizada")
-    for t, amp in zip(data_waves['times'][index], 
-                       data_waves['normalized_waves'][index]):
+    for t, amp in zip(tiempos_estandarizados[index], 
+                       ondas_normalizadas[index]):
         print(f"{t:.5f} -> {amp:.5f}")
 
 def on_key_normalizada(event):
     global index_norm
     if event.key == "right":
-        index_norm = (index_norm + 1) % len(data_waves['normalized_waves'])
+        index_norm = (index_norm + 1) % len(ondas_normalizadas)
         visualizar_onda_normalizada(index_norm)
     elif event.key == "left":
-        index_norm = (index_norm - 1) % len(data_waves['normalized_waves'])
+        index_norm = (index_norm - 1) % len(ondas_normalizadas)
         visualizar_onda_normalizada(index_norm)
 
 #%% Inicialización de visualización de ondas normalizadas
-if len(data_waves['normalized_waves']) > 0:
+if len(ondas_normalizadas) > 0:
     index_norm = 0
     visualizar_onda_normalizada(index_norm)
     plt.show(block=True)
@@ -208,15 +211,15 @@ else:
     print("Error: No se encontraron ondas R para normalizar.")
 
 #%% Visualización de todas las ondas normalizadas concatenadas
-if len(data_waves['normalized_waves']) > 0:
+if len(ondas_normalizadas) > 0:
     plt.figure(figsize=(15, 6))
     
     # Determinar la longitud máxima para el padding
-    max_len = max(len(wave) for wave in data_waves['normalized_waves'])
+    max_len = max(len(wave) for wave in ondas_normalizadas)
     
     # Crear un array para todas las ondas con padding
     all_waves = []
-    for wave in data_waves['normalized_waves']:
+    for wave in ondas_normalizadas:
         # Padding si es necesario
         padded_wave = np.pad(wave, (0, max_len - len(wave)), 'constant', constant_values=(0, 0))
         all_waves.append(padded_wave)
@@ -235,22 +238,22 @@ else:
     print("Error: No hay ondas normalizadas para visualizar.")
 
 #%% Guardar los datos procesados para entrenamiento
-if len(data_waves['normalized_waves']) > 0:
+if len(ondas_normalizadas) > 0:
     # Preparar los datos en formato JSON
     # Convertimos todo a listas para JSON
     data_json = {
-        'normalized_waves': [wave.tolist() for wave in data_waves['normalized_waves']],
+        'normalized_waves': [wave.tolist() for wave in ondas_normalizadas],
         'metadata': {
             'frecuencia_muestreo': float(fs),
             'source': 'CSV annotations',
-            'total_waves': len(data_waves['normalized_waves']),
+            'total_waves': len(ondas_normalizadas),
             'start_indices': start_indices.tolist(),
             'end_indices': end_indices.tolist(),
             'r_peaks_calculados': r_peaks_calculados.tolist()
         }
     }
     
-    with open('wave_data_from_csv.json', 'w') as f:
+    with open('wave_data.json', 'w') as f:
         json.dump(data_json, f, indent=4)
     
     print("\nResumen de los datos guardados en JSON:")

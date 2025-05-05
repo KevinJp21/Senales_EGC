@@ -5,7 +5,7 @@ import csv
 # Ruta al archivo base (sin extensión)
 base = './QT_Database/sel30/sel30'
 
-# Verificar si existe el archivo de anotaciones .q1c
+# Verificar si existe el archivo de anotaciones
 ruta_q1c = base + '.q1c'
 if not os.path.exists(ruta_q1c):
     print(f'No se encontró el archivo: {ruta_q1c}')
@@ -26,26 +26,38 @@ with open(csv_filename, mode='w', newline='') as csvfile:
     # Contador para el total de ondas R (grupos completos)
     total_ondas_r = 0
 
-    # Recorrer anotaciones buscando patrones ( N )
+    # Recorrer anotaciones buscando patrones ( N ) y ( N N )
     i = 0
     while i < len(anotaciones.sample) - 2:
         simbolo1 = anotaciones.symbol[i]
         simbolo2 = anotaciones.symbol[i + 1]
         simbolo3 = anotaciones.symbol[i + 2]
-        
+        # Patrón ( N )
         if simbolo1 == '(' and simbolo2 == 'N' and simbolo3 == ')':
-            total_ondas_r += 1  # Incrementar contador por cada grupo completo
-            
-            for j in range(3):  # imprimir y guardar los tres juntos: ( N )
+            total_ondas_r += 1
+            for j in range(3):
                 idx = i + j
                 tiempo = anotaciones.sample[idx] / anotaciones.fs
-                time_str = f"{tiempo:.3f}"  # Tiempo en segundos con 3 decimales
+                time_str = f"{tiempo:.3f}"
                 sample = anotaciones.sample[idx]
                 tipo = anotaciones.symbol[idx]
                 print(f"{time_str}\t{sample}\t{tipo}")
                 writer.writerow([time_str, sample, tipo])
             print()
             i += 3
+        # Patrón ( N N )
+        elif i < len(anotaciones.sample) - 3 and simbolo1 == '(' and simbolo2 == 'N' and simbolo3 == 'N' and anotaciones.symbol[i + 3] == ')':
+            total_ondas_r += 1
+            for j in range(4):
+                idx = i + j
+                tiempo = anotaciones.sample[idx] / anotaciones.fs
+                time_str = f"{tiempo:.3f}"
+                sample = anotaciones.sample[idx]
+                tipo = anotaciones.symbol[idx]
+                print(f"{time_str}\t{sample}\t{tipo}")
+                writer.writerow([time_str, sample, tipo])
+            print()
+            i += 4
         else:
             i += 1
 
@@ -63,29 +75,25 @@ try:
         total_registros = 0
         tipo_inicio = 0
         tipo_pico = 0 
+        tipo_pico_nn = 0
         tipo_fin = 0
         
         for row in csv_reader:
             total_registros += 1
-            if row[2] == '(':
-                tipo_inicio += 1
-            elif row[2] == 'N':
-                tipo_pico += 1
-            elif row[2] == ')':
-                tipo_fin += 1
+            if row[2] == '(': tipo_inicio += 1
+            elif row[2] == 'N': tipo_pico += 1
+            elif row[2] == ')': tipo_fin += 1
         
-        # Calcular ondas completas
-        ondas_completas = min(tipo_inicio, tipo_pico, tipo_fin)
+        # Calcular ondas completas considerando ambos patrones
+        ondas_completas = min(tipo_inicio, tipo_fin, tipo_pico // 1)  # Puede haber 1 o 2 picos por onda
         
         print(f"Total de registros en CSV: {total_registros}")
         print(f"Anotaciones de inicio '(': {tipo_inicio}")
         print(f"Anotaciones de pico 'N': {tipo_pico}")
         print(f"Anotaciones de fin ')': {tipo_fin}")
-        print(f"Ondas R completas (tríos '(', 'N', ')'): {ondas_completas}")
+        print(f"Ondas R completas (tríos o cuartetos): {ondas_completas}")
         
         # Verificar coherencia
-        if ondas_completas * 3 != total_registros:
-            print("ADVERTENCIA: El número de registros no es múltiplo de 3")
         if ondas_completas != total_ondas_r:
             print("ADVERTENCIA: Inconsistencia en el conteo de ondas R")
             
