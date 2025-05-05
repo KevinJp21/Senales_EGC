@@ -5,9 +5,9 @@ matplotlib.use('TkAgg')  # Configurar el backend interactivo
 import matplotlib.pyplot as plt
 plt.ion()  # Activar modo interactivo
 import numpy as np
+from scipy.signal import find_peaks
 import pandas as pd
 import json
-from datetime import datetime
 
 #%% Configuración inicial y carga de datos
 # Ruta del archivo de registro ECG
@@ -25,68 +25,55 @@ ecgsignal = record.p_signal[:, 0]
 # Crear el eje de tiempo
 timeaxis = np.arange(len(ecgsignal)) / fs
 
-#%% Cargar y procesar el archivo CSV con anotaciones de ondas R
-# Cargar el archivo CSV con las anotaciones
-annotations_df = pd.read_csv('ondas_R.csv')
+#%% Detección de ondas R
+rpeaks, _ = find_peaks(ecgsignal, distance=fs*0.3, prominence=0.1)
+refined_peaks = []
+window_refine = int(0.05 * fs)  # 50 ms a cada lado
+for peak in rpeaks:
+    start = max(peak - window_refine, 0)
+    end = min(peak + window_refine, len(ecgsignal))
+    local_max = np.argmax(ecgsignal[start:end])
+    refined_peaks.append(start + local_max)
+rpeaks = np.array(refined_peaks)
 
-# Función para convertir tiempo de formato HH:MM:SS.mmm a segundos
-def time_to_seconds(time_str):
-    time_format = "%H:%M:%S.%f"
-    time_obj = datetime.strptime(time_str, time_format)
-    return time_obj.hour * 3600 + time_obj.minute * 60 + time_obj.second + time_obj.microsecond / 1000000
+#%% Definición de funciones auxiliares
+def detect_limits(signal, peaks, min_distance=10):
+    start_indices = []
+    end_indices = []
+    for peak in peaks:
+        # Buscar el inicio (antes del pico, donde la pendiente empieza a subir)
+        start = peak
+        while start > 0 and signal[start] > signal[start - 1]:
+            start -= 1
+        # Buscar el final (después del pico, donde la pendiente deja de bajar)
+        end = peak
+        while end < len(signal) - 1 and signal[end] > signal[end + 1]:
+            end += 1
+        # Asegurar que el final no sea el mismo punto que el pico R
+        if end - peak < min_distance:
+            end = min(peak + min_distance, len(signal) - 1)
+        start_indices.append(start)
+        end_indices.append(end)
+    return np.array(start_indices), np.array(end_indices)
 
-# Convertir los tiempos a segundos
-annotations_df['Time_seconds'] = annotations_df['Time'].apply(time_to_seconds)
+#%% Procesamiento de ondas R
+# Detectar inicios y finales
+start_indices, end_indices = detect_limits(ecgsignal, rpeaks)
 
-# Filtrar las anotaciones por tipo
-start_points = annotations_df[annotations_df['Type'] == '(']
-r_points = annotations_df[annotations_df['Type'] == 'N']
-end_points = annotations_df[annotations_df['Type'] == ')']
-
-# Asegurarse de que tenemos el mismo número de cada tipo de anotación
-min_length = min(len(start_points), len(r_points), len(end_points))
-print(f"Total de ondas R encontradas en el CSV: {min_length}")
-
-# Extraer los tiempos y convertirlos a índices de muestra
-start_indices = [int(time * fs) for time in start_points['Time_seconds'][:min_length]]
-r_peaks = [int(time * fs) for time in r_points['Time_seconds'][:min_length]]
-end_indices = [int(time * fs) for time in end_points['Time_seconds'][:min_length]]
-
-# Convertir a arrays de numpy
-start_indices = np.array(start_indices)
-r_peaks = np.array(r_peaks)
-end_indices = np.array(end_indices)
-
-# Verificar que todos los índices están dentro del rango de la señal
-valid_indices = []
-for i in range(min_length):
-    if (start_indices[i] < len(ecgsignal) and 
-        r_peaks[i] < len(ecgsignal) and 
-        end_indices[i] < len(ecgsignal)):
-        valid_indices.append(i)
-
-print(f"Total de ondas R válidas (dentro del rango de la señal): {len(valid_indices)}")
-
-# Filtrar los índices
-start_indices = start_indices[valid_indices]
-r_peaks = r_peaks[valid_indices]
-end_indices = end_indices[valid_indices]
-
-#%% Extraer las ondas R basadas en los índices del CSV
 # Extraer las ondas R y almacenarlas en una lista con sus tiempos
 r_waves = [ecgsignal[start:end] for start, end in zip(start_indices, end_indices)]
 times_r_waves = [timeaxis[start:end] for start, end in zip(start_indices, end_indices)]
 
-#%% Visualización de la señal completa con las anotaciones del CSV
+#%% Visualización de la señal completa
 plt.figure(figsize=(12, 4))
 plt.plot(timeaxis, ecgsignal, label="Señal ECG", color='m')
-plt.scatter(timeaxis[r_peaks], ecgsignal[r_peaks], color='r', label="Picos R (N)", marker="o")
-plt.scatter(timeaxis[start_indices], ecgsignal[start_indices], color='g', label="Inicio (()", marker="x")
-plt.scatter(timeaxis[end_indices], ecgsignal[end_indices], color='b', label="Final ())", marker="x")
+plt.scatter(timeaxis[rpeaks], ecgsignal[rpeaks], color='r', label="Picos R", marker="o")
+plt.scatter(timeaxis[start_indices], ecgsignal[start_indices], color='g', label="Inicio", marker="x")
+plt.scatter(timeaxis[end_indices], ecgsignal[end_indices], color='b', label="Final", marker="x")
 
 plt.xlabel("Tiempo (s)")
 plt.ylabel("Amplitud")
-plt.title("ECG - Ondas R desde archivo CSV")
+plt.title("ECG - Inicio y Fin de las Ondas R")
 plt.legend()
 plt.grid()
 plt.show()
@@ -121,15 +108,18 @@ def on_key(event):
 
 #%% Inicialización de la visualización interactiva original
 # Asegurarse de que todas las variables necesarias estén definidas
-if 'r_waves' in locals() and 'times_r_waves' in locals() and len(r_waves) > 0:
+if 'r_waves' in locals() and 'times_r_waves' in locals():
     index_orig = 0
     visualizar_onda(index_orig)
     plt.show(block=True) # Bloquear la ejecución para mantener la ventana abierta
 else:
-    print("Error: No se encontraron ondas R válidas para visualizar.")
+    print("Error: Las variables 'r_waves' y 'times_r_waves' no están definidas. Ejecuta las celdas anteriores primero.")
 
 #%% Estandarización y normalización de ondas R
-# Preparar las estructuras para almacenar los datos
+# Preparar las ventanas centradas en cada pico R (duración de 120 ms)
+window_ms = 120
+window_samples = int((window_ms / 1000) * fs)
+# Estructuras para almacenar los datos
 data_waves = {
     'original_waves': [],
     'normalized_waves': [],
@@ -137,37 +127,37 @@ data_waves = {
     'durations': [],
     'metadata': {
         'frecuencia_muestreo': fs,
-        'source': 'CSV annotations'
+        'ventana_ms': window_ms,
+        'muestras_por_ventana': window_samples
     }
 }
-
 # Extraer y normalizar cada onda R
-for start, end in zip(start_indices, end_indices):
-    # Extraer la onda original basada en las anotaciones del CSV
+for peak in rpeaks:
+    half = window_samples // 2
+    start = max(peak - half, 0)
+    end = min(peak + half, len(ecgsignal))
+    if end - start < window_samples:
+        if start == 0:
+            end = window_samples
+        elif end == len(ecgsignal):
+            start = len(ecgsignal) - window_samples
+    # Extraer la onda original
     original_wave = ecgsignal[start:end] 
     time_wave = timeaxis[start:end]
     duration = timeaxis[end - 1] - timeaxis[start]
-    
     # Normalizar usando la fórmula (X - B)/(A-B)
     A = np.max(original_wave) # max valor
     B = np.min(original_wave) # min valor
-    
-    # Evitar división por cero
-    if A == B:
-        normalized_wave = np.zeros_like(original_wave)
-    else:
-        normalized_wave = (original_wave - B) / (A - B)
-    
+    normalized_wave = (original_wave - B) / (A - B)
     # Almacenar los datos
     data_waves['original_waves'].append(original_wave)
     data_waves['normalized_waves'].append(normalized_wave)
     data_waves['times'].append(time_wave)
     data_waves['durations'].append(duration)
-
 # Convertir listas a arrays de numpy para mejor manejo
-data_waves['original_waves'] = np.array(data_waves['original_waves'], dtype=object)
-data_waves['normalized_waves'] = np.array(data_waves['normalized_waves'], dtype=object)
-data_waves['times'] = np.array(data_waves['times'], dtype=object)
+data_waves['original_waves'] = np.array(data_waves['original_waves'])
+data_waves['normalized_waves'] = np.array(data_waves['normalized_waves'])
+data_waves['times'] = np.array(data_waves['times'])
 data_waves['durations'] = np.array(data_waves['durations'])
 
 #%% Visualización interactiva de ondas R normalizadas
@@ -214,55 +204,29 @@ else:
     print("Error: No se encontraron ondas R para normalizar.")
 
 #%% Visualización de todas las ondas normalizadas concatenadas
-if len(data_waves['normalized_waves']) > 0:
-    plt.figure(figsize=(15, 6))
-    
-    # Determinar la longitud máxima para el padding
-    max_len = max(len(wave) for wave in data_waves['normalized_waves'])
-    
-    # Crear un array para todas las ondas con padding
-    all_waves = []
-    for wave in data_waves['normalized_waves']:
-        # Padding si es necesario
-        padded_wave = np.pad(wave, (0, max_len - len(wave)), 'constant', constant_values=(0, 0))
-        all_waves.append(padded_wave)
-    
-    # Concatenar todas las ondas
-    full_signal = np.concatenate(all_waves)
-    time_full = np.arange(len(full_signal)) / fs
-    
-    plt.plot(time_full, full_signal, 'b-', linewidth=1)
-    plt.title('Señal ECG Concatenada de Ondas R Normalizadas (desde CSV)')
-    plt.xlabel('Tiempo (s)')
-    plt.ylabel('Amplitud Normalizada')
-    plt.grid(True)
-    plt.show()
-else:
-    print("Error: No hay ondas normalizadas para visualizar.")
+plt.figure(figsize=(15, 6))
+full_signal = np.concatenate(data_waves['normalized_waves'])
+time_full = np.arange(len(full_signal)) / fs
+plt.plot(time_full, full_signal, 'b-', linewidth=1)
+plt.title('Señal ECG Concatenada de Ondas R Normalizadas')
+plt.xlabel('Tiempo (s)')
+plt.ylabel('Amplitud Normalizada')
+plt.grid(True)
+plt.show()
 
 #%% Guardar los datos procesados para entrenamiento
-if len(data_waves['normalized_waves']) > 0:
-    # Preparar los datos en formato JSON
-    # Convertimos todo a listas para JSON
-    data_json = {
-        'normalized_waves': [wave.tolist() for wave in data_waves['normalized_waves']],
-        'metadata': {
-            'frecuencia_muestreo': float(fs),
-            'source': 'CSV annotations',
-            'total_waves': len(data_waves['normalized_waves'])
-        }
-    }
-    
-    with open('wave_data_from_csv.json', 'w') as f:
-        json.dump(data_json, f, indent=4)
-    
-    print("\nResumen de los datos guardados en JSON:")
-    print(f"Número total de ondas R: {len(data_json['normalized_waves'])}")
-    if len(data_json['normalized_waves']) > 0:
-        print(f"Dimensiones de la primera onda: {len(data_json['normalized_waves'][0])}")
-    print(f"Frecuencia de muestreo: {data_json['metadata']['frecuencia_muestreo']} Hz")
-    print("\nArchivo JSON creado: wave_data.json")
-else:
-    print("Error: No hay datos para guardar en JSON.")
+# Preparar los datos en formato JSON
+data_json = {
+    'normalized_waves': data_waves['normalized_waves'].tolist(),
+    'metadata': data_waves['metadata']
+}
+with open('wave_data.json', 'w') as f:
+    json.dump(data_json, f, indent=4)
+print("\nResumen de los datos guardados en JSON:")
+print(f"Número total de ondas R: {len(data_json['normalized_waves'])}")
+print(f"Dimensiones de cada onda: {len(data_json['normalized_waves'][0])}")
+print(f"Frecuencia de muestreo: {data_json['metadata']['frecuencia_muestreo']} Hz")
+print(f"Ventana temporal: {data_json['metadata']['ventana_ms']} ms")
+print("\nArchivo JSON creado: wave_data.json")
 
 # %%
