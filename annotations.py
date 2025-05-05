@@ -6,13 +6,13 @@ import csv
 base = './QT_Database/sel30/sel30'
 
 # Verificar si existe el archivo de anotaciones
-ruta_q1c = base + '.q1c'
+ruta_q1c = base + '.pu'
 if not os.path.exists(ruta_q1c):
     print(f'No se encontró el archivo: {ruta_q1c}')
     exit(1)
 
 # Leer las anotaciones usando wfdb.rdann
-anotaciones = wfdb.rdann(base, 'q1c')
+anotaciones = wfdb.rdann(base, 'pu')
 
 # Preparar archivo CSV
 csv_filename = 'ondas_R.csv'

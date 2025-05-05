@@ -167,6 +167,19 @@ ondas_estandarizadas = np.array(ondas_estandarizadas, dtype=object)
 ondas_normalizadas = np.array(ondas_normalizadas, dtype=object)
 tiempos_estandarizados = np.array(tiempos_estandarizados, dtype=object)
 
+# Crear array de tags (1 para ondas con anotación 'N', 0 para otras)
+tags = np.zeros(len(ondas_normalizadas))
+for i, (start, end) in enumerate(zip(start_indices, end_indices)):
+    # Buscar si hay alguna anotación 'N' en este rango
+    r_peaks_en_rango = r_points[(r_points['Time'] * fs >= start) & (r_points['Time'] * fs <= end)]
+    if len(r_peaks_en_rango) > 0:
+        tags[i] = 1
+
+print(f"\nDistribución de tags:")
+print(f"Total de ondas: {len(tags)}")
+print(f"Ondas con anotación 'N': {np.sum(tags)}")
+print(f"Ondas sin anotación 'N': {len(tags) - np.sum(tags)}")
+
 #%% Visualización interactiva de ondas R normalizadas
 def visualizar_onda_normalizada(index):
     if not plt.get_fignums():
@@ -243,6 +256,7 @@ if len(ondas_normalizadas) > 0:
     # Convertimos todo a listas para JSON
     data_json = {
         'normalized_waves': [wave.tolist() for wave in ondas_normalizadas],
+        'tags': tags.tolist(),
         'metadata': {
             'frecuencia_muestreo': float(fs),
             'source': 'CSV annotations',
